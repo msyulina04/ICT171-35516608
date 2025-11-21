@@ -33,13 +33,14 @@ Domain connected using Cloudns and an A-record pointing to the server
 
 # Repository Structure
 index.html
+style.css
+LICENSE
+README.md
+js/
 main.js
 mode_fall.js
 mode_escape.js
 mode_web.js
-style.css
-LICENSE
-README.md
 
 # License
 This project uses the MIT License.
