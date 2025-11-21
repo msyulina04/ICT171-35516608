@@ -1,0 +1,218 @@
+<!-- index.html -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ASMR Physics - Demo</title>
+<meta name="description" content="Demo: click and create balls (student: 35516608)" />
+<section id="project-description" style="padding:2rem; max-width:800px; margin:auto; color:#ddd; font-size:15px; line-height:1.6;">
+    <h2 style="text-align:center;">Project Description</h2>
+
+    <p>This site was created as a simple visual demo page inspired by addictive YouTube videos in the Oddly Satisfying and ASMR genres. On the page, users can click on the screen to create balls that fall, bounce, and interact with each other under the force of gravity. The project has no practical purpose—it is an exploration of visual pleasure, physical simulation, and basic human interaction with digital objects. I wanted to test how minimal visual elements and physical laws create an effect of relaxation and engagement.</p>
+    <p>Technically, the site is a static HTML page with embedded JavaScript code that implements a simple physics model—motion, collisions, elasticity, and gravity. The server side is built on Ubuntu 24.04 LTS running on a virtual machine in Microsoft Azure. The site is served by nginx and configured manually via SSH. The project is deployed using the scp command, and the index.html file is located in the /var/www/html/ directory. Thus, the project demonstrates the basic structure of web deployment at the infrastructure level as a service (IaaS).</p>
+    <p>In the future, I intend to expand the functionality of the site: add sound effects for collisions, interactive elements, the ability to control simulation parameters, and experiment with visual styles. I'm also planning to add the game element that would keep users more engaged. The goal of the project is to explore how simple visual and physical dynamics can evoke a sense of satisfaction and hold the viewer's attention. This practice helps develop skills in HTML, CSS, JavaScript, the basics of interface design, and an understanding of the emotional impact of visual forms.</p>
+
+    <h2 style="text-align:center;">Licence</h2>
+    <p>Project is distributed under the licence <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" style="color:#8cf;">Creative Commons Attribution 4.0 International (CC BY 4.0)</a>.This license allows others to freely use, modify, and distribute the code and visual elements, if the original author is acknowledged. Since the site is created solely for educational purposes and has no commercial intent, and won't be seen by anyone other than teachers of Murdoch University and it's students during presentation, an open license is a logical, ethical choice and quite obvious choice. After completing the training and shutting down the virtual machine, the code can be saved and reused.<p>
+
+    <p style="text-align:center; margin-top:1rem;">
+        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">
+            <img src="https://licensebuttons.net/l/by/4.0/88x31.png" alt="CC BY 4.0">
+        </a>
+    </p>
+</section>
+
+<style>
+  :root{--bg:#0f1117}
+  html,body{height:100%;margin:0;background:var(--bg);font-family:Inter,system-ui,Segoe UI,Arial;color:#fff}
+  .topbar{height:64px;display:flex;align-items:center;gap:12px;padding:0 18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+  .title{font-weight:600;font-size:18px}
+  .hint{opacity:.7;font-size:13px}
+  #stage{position:relative;overflow:hidden;height:calc(100vh - 64px);cursor:crosshair}
+  .ball{
+    position:absolute;border-radius:50%;
+    user-select:none;pointer-events:none;
+    transform:translate(-50%,-50%);
+    will-change:transform;
+    box-shadow:0 6px 18px rgba(0,0,0,0.45), inset 0 -6px 10px rgba(255,255,255,0.03);
+  }
+  .footer{position:fixed;left:12px;bottom:12px;background:rgba(255,255,255,0.03);padding:8px 10px;border-radius:10px;font-size:12px;opacity:.9}
+  .controls{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .btn{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.04);padding:6px 10px;border-radius:8px;color:#fff;font-size:13px;cursor:pointer}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="title">Physics ASMR - Demo</div>
+    <div class="hint">One click - create a ball. Double click - clean the scene.</div>
+    <div class="controls">
+      <button id="clearBtn" class="btn">Clear</button>
+      <button id="toggleGravity" class="btn">Gravity: on</button>
+    </div>
+  </div>
+
+  <main id="stage" aria-label="stage"></main>
+
+  <div class="footer">Student: 35516608. Click to create balls. </div>
+
+<script>
+/* --- Конфигурация--- */
+const MAX_BALLS = 150;
+const SPAWN_COUNT = 6;          // шариков за один клик
+const MIN_SIZE = 14, MAX_SIZE = 60;
+const BASE_BOUNCE = 0.78;       // упругость при столкновении с полом
+const GRAVITY_STRENGTH = 0.8;   // гравитация (можно выключать)
+let gravityOn = true;
+
+/* --- Helpers --- */
+const rand = (a,b)=>Math.random()*(b-a)+a;
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* --- Stage --- */
+const stage = document.getElementById('stage');
+let balls = [];
+let raf = null;
+
+/* --- Ball class (простая физика) --- */
+class Ball {
+  constructor(x,y){
+    this.r = rand(MIN_SIZE, MAX_SIZE);
+    this.x = x; this.y = y;
+    const speed = rand(1.2, 6.5);
+    const angle = rand(-Math.PI*0.9, -Math.PI*0.1); // вверх-ish
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+    this.mass = this.r * 0.06;
+    this.bounce = BASE_BOUNCE - (this.r/MAX_SIZE)*0.08;
+    this.color = `hsl(${Math.floor(rand(0,360))} ${Math.floor(rand(55,92))}% ${Math.floor(rand(45,60))}%)`;
+    this.el = document.createElement('div');
+    this.el.className = 'ball';
+    this.el.style.width = `${this.r*2}px`;
+    this.el.style.height = `${this.r*2}px`;
+    this.el.style.left = `${this.x}px`;
+    this.el.style.top = `${this.y}px`;
+    this.el.style.background = `radial-gradient(circle at 30% 25%, rgba(255,255,255,0.35), transparent 15%), ${this.color}`;
+    stage.appendChild(this.el);
+  }
+  update(dt, W, H){
+    if(gravityOn) this.vy += 9.81 * (GRAVITY_STRENGTH * dt); // простая гравитация
+    this.x += this.vx * dt * 60;
+    this.y += this.vy * dt * 60;
+
+    // края по X
+    if(this.x - this.r < 0){
+      this.x = this.r;
+      this.vx = -this.vx * (0.92 + Math.random()*0.06);
+    } else if(this.x + this.r > W){
+      this.x = W - this.r;
+      this.vx = -this.vx * (0.92 + Math.random()*0.06);
+    }
+
+    // пол/потолок
+    if(this.y + this.r > H){
+      this.y = H - this.r;
+      this.vy = -this.vy * this.bounce;
+      // трение при ударе
+      this.vx *= 0.98;
+      // мелкие потери энергии — если почти стоят, затормозим
+      if(Math.abs(this.vy) < 0.8) this.vy = 0;
+    } else if(this.y - this.r < 0){
+      this.y = this.r;
+      this.vy = -this.vy * 0.95;
+    }
+
+    // apply
+    this.el.style.transform = `translate(${this.x - this.r}px, ${this.y - this.r}px)`;
+    // scale при скорости — визуально "сжимает"
+    const sp = Math.min(1.4, 1 + Math.abs(this.vy)/120);
+    this.el.style.width = `${this.r*2 * (1 + Math.min(0.12, Math.abs(this.vx)/600))}px`;
+    this.el.style.height = `${this.r*2 / sp}px`;
+  }
+  remove(){
+    this.el.remove();
+  }
+}
+
+/* --- Loop --- */
+let last = performance.now();
+function loop(t){
+  const dt = Math.min(0.04, (t - last)/1000);
+  last = t;
+  const W = stage.clientWidth, H = stage.clientHeight;
+
+  // update balls
+  for(let i=balls.length-1;i>=0;i--){
+    balls[i].update(dt, W, H);
+    // remove off-screen or too old
+    if(balls[i].y - balls[i].r > H*2 || balls.length > MAX_BALLS){
+      balls[i].remove();
+      balls.splice(i,1);
+    }
+  }
+
+  // simple pairwise collision (O(n^2) but ok for small counts)
+  for(let i=0;i<balls.length;i++){
+    for(let j=i+1;j<balls.length;j++){
+      const A = balls[i], B = balls[j];
+      const dx = B.x - A.x, dy = B.y - A.y;
+      const dist = Math.hypot(dx,dy);
+      const minDist = A.r + B.r;
+      if(dist > 0 && dist < minDist){
+        // push them apart
+        const overlap = (minDist - dist) / 2;
+        const nx = dx / dist, ny = dy / dist;
+        A.x -= nx * overlap; A.y -= ny * overlap;
+        B.x += nx * overlap; B.y += ny * overlap;
+        // simple elastic-ish collision
+        const kx = (A.vx - B.vx), ky = (A.vy - B.vy);
+        const p = 2 * (nx*kx + ny*ky) / (A.mass + B.mass);
+        A.vx = A.vx - p * B.mass * nx;
+        A.vy = A.vy - p * B.mass * ny;
+        B.vx = B.vx + p * A.mass * nx;
+        B.vy = B.vy + p * A.mass * ny;
+      }
+    }
+  }
+
+  raf = requestAnimationFrame(loop);
+}
+
+/* --- Interactions --- */
+function spawnAt(clientX, clientY, count=SPAWN_COUNT){
+  const rect = stage.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  for(let i=0;i<count;i++){
+    balls.push(new Ball(x + rand(-20,20), y + rand(-20,20)));
+  }
+}
+
+stage.addEventListener('click', (e)=>{
+  spawnAt(e.clientX, e.clientY, Math.floor(rand(3, SPAWN_COUNT)));
+});
+
+stage.addEventListener('dblclick', (e)=>{
+  // быстрое очищение
+  for(const b of balls) b.remove();
+  balls = [];
+});
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  for(const b of balls) b.remove();
+  balls = [];
+});
+
+document.getElementById('toggleGravity').addEventListener('click', (ev)=>{
+  gravityOn = !gravityOn;
+  ev.target.textContent = `Гравитация: ${gravityOn? 'ВКЛ' : 'ВЫКЛ'}`;
+});
+
+/* resize-safe */
+window.addEventListener('resize', ()=>{ /* ничего не делаем специфичного */ });
+
+/* старт */
+raf = requestAnimationFrame(loop);
+</script>
+</body>
+</html>
