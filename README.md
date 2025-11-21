@@ -4,7 +4,7 @@ ICT171 – Physics Playground (Matter.js)
 Student ID: 35516608
 Project Type: Cloud-hosted interactive physics demo
 Server: Azure VM (ICT171)
-Domain: http://ict171-35516608.centralindia.cloudapp.azure.com/
+Domain: physics-simulator.click
 
 # Overview
 This project is a small interactive physics sandbox built with Matter.js.
