@@ -42,6 +42,8 @@ mode_fall.js
 mode_escape.js
 mode_web.js
 
+Old_versions folder for older versions of the website
+
 # License
 This project uses the MIT License.
 
